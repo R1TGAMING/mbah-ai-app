@@ -6,7 +6,7 @@ import {
     InputGroupTextarea,
     InputGroupButton,
 } from "@/components/ui/input-group";
-import { ArrowUpIcon } from "lucide-react";
+import { ArrowUpIcon, ChevronDownIcon } from "lucide-react";
 import Conversation, {
     ConversationContent,
     ConversationEmptyState,
@@ -17,6 +17,26 @@ import { useState, useRef } from "react";
 import fetchGemini from "@/api/fetchGemini";
 import { Spinner } from "@/components/ui/spinner";
 import ReactMarkdown from "react-markdown";
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuGroup,
+    DropdownMenuItem,
+    DropdownMenuLabel,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Button } from "@/components/ui/button";
+import models from "../../models.json";
+import {
+    Dialog,
+    DialogClose,
+    DialogContent,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 
 type ChatMessage = {
     id: string;
@@ -29,11 +49,37 @@ const Chat = () => {
     const [input, setInput] = useState("");
     const [isLoading, setIsLoading] = useState(false);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
+    const [selectedModel, setSelectedModel] = useState<string | null>(null);
+    const [openDialog, setOpenDialog] = useState(false);
+    const [apiKey, setApiKey] = useState("");
+
+    const handleSaveChanges = () => {
+        if (!selectedModel || !apiKey) {
+            return alert("Please provide a models and api key");
+        }
+
+        if (apiKey.length < 10) {
+            return alert("Please provide a valid api key");
+        }
+        setOpenDialog(false);
+    };
+
+    const handleModelChange = (
+        e: React.MouseEvent<HTMLDivElement>,
+        model: string,
+    ) => {
+        e.preventDefault();
+
+        setSelectedModel(model);
+        setOpenDialog(true);
+    };
 
     const handleSend = async () => {
         const trimmed = input.trim();
         if (!trimmed || isLoading) return;
-
+        if (!selectedModel || !apiKey) {
+            return alert("Please provide a models and api key");
+        }
         const userMessage: ChatMessage = {
             id: crypto.randomUUID(),
             from: "user",
@@ -44,11 +90,12 @@ const Chat = () => {
         setIsLoading(true);
 
         try {
-            const reply = await fetchGemini(trimmed);
+            const reply = await fetchGemini(trimmed, selectedModel, apiKey);
             const aiMessage: ChatMessage = {
                 id: crypto.randomUUID(),
                 from: "assistant",
-                text: reply ?? "Maaf, tidak ada jawaban.",
+                text:
+                    reply ?? "Maaf, tidak ada jawaban atau terjadi kesalahan.",
             };
             setMessages((prev) => [...prev, aiMessage]);
         } catch {
@@ -60,6 +107,8 @@ const Chat = () => {
                     text: "Terjadi error. Coba lagi.",
                 },
             ]);
+
+            
         } finally {
             setIsLoading(false);
             textareaRef.current?.focus();
@@ -149,8 +198,45 @@ const Chat = () => {
                                 />
                                 <InputGroupAddon
                                     align="block-end"
-                                    className="mt-2 justify-end"
+                                    className="mt-2 justify-between"
                                 >
+                                    <DropdownMenu>
+                                        <DropdownMenuTrigger>
+                                            <Button
+                                                variant="default"
+                                                className="bg-[#1e1e1e] hover:bg-[#1b1b1b] max-w-40"
+                                            >
+                                                {selectedModel
+                                                    ? selectedModel
+                                                    : "Select Models"}
+                                                <ChevronDownIcon />
+                                            </Button>
+                                        </DropdownMenuTrigger>
+                                        <DropdownMenuContent className="bg-[#1e1e1e] text-white">
+                                            <DropdownMenuGroup>
+                                                <DropdownMenuLabel>
+                                                    Google
+                                                </DropdownMenuLabel>
+                                                <DropdownMenuSeparator />
+
+                                                {models.google.map((model) => (
+                                                    <DropdownMenuItem
+                                                        key={model}
+                                                        onClick={(e) =>
+                                                            handleModelChange(
+                                                                e,
+                                                                model,
+                                                            )
+                                                        }
+                                                    >
+                                                        {model}
+                                                    </DropdownMenuItem>
+                                                ))}
+                                            </DropdownMenuGroup>
+
+                                            <DropdownMenuItem className=" focus:bg-[#1b1b1b] focus:text-white"></DropdownMenuItem>
+                                        </DropdownMenuContent>
+                                    </DropdownMenu>
                                     <InputGroupButton
                                         className="rounded-full cursor-pointer"
                                         size="icon-sm"
@@ -166,6 +252,40 @@ const Chat = () => {
                             </InputGroup>
                         </div>
                     </div>
+
+                    <Dialog open={openDialog} onOpenChange={setOpenDialog}>
+                        <DialogContent className="bg-dark">
+                            <DialogHeader className="text-white">
+                                <DialogTitle>API Key</DialogTitle>
+
+                                <Input
+                                    type="password"
+                                    minLength={10}
+                                    placeholder="API Key..."
+                                    className="text-white"
+                                    value={apiKey}
+                                    onChange={(e) => setApiKey(e.target.value)}
+                                />
+                            </DialogHeader>
+                            <DialogFooter>
+                                <DialogClose asChild>
+                                    <Button
+                                        variant="outline"
+                                        className="cursor-pointer"
+                                    >
+                                        Cancel
+                                    </Button>
+                                </DialogClose>
+                                <Button
+                                    className="bg-[#1e1e1e] hover:bg-[#1b1b1b] cursor-pointer "
+                                    type="submit"
+                                    onClick={handleSaveChanges}
+                                >
+                                    Save changes
+                                </Button>
+                            </DialogFooter>
+                        </DialogContent>
+                    </Dialog>
                 </main>
             </div>
         </SidebarProvider>

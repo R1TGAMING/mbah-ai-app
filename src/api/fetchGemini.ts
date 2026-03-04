@@ -1,13 +1,14 @@
 import { GoogleGenAI } from "@google/genai";
 
-const ai = new GoogleGenAI({
-    apiKey: import.meta.env.VITE_GOOGLE_API_KEY,
-});
-
 const fetchGemini = async (
     message: string,
-    model: string = "gemini-2.5-flash",
+    model: string,
+    api_key: string,
 ): Promise<string | undefined> => {
+    const ai = new GoogleGenAI({
+        apiKey: api_key,
+    });
+
     try {
         const response = await ai.models.generateContent({
             model: model,
